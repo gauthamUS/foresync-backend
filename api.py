@@ -16,7 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 # import your helpers
-import login  # <- your file in the same folder
+from app import login
 
 APP_ROOT       = Path(__file__).parent.resolve()
 SESSIONS_ROOT  = APP_ROOT / "sessions"
