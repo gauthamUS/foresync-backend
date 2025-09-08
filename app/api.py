@@ -2,6 +2,9 @@
 import os, re, time, uuid, shutil
 from pathlib import Path
 from typing import List, Optional, Dict
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,7 +19,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 # import your helpers
-from app import login
+import Login  # <- your file in the same folder
 
 APP_ROOT       = Path(__file__).parent.resolve()
 SESSIONS_ROOT  = APP_ROOT / "sessions"
@@ -171,7 +174,7 @@ def start():
     SESSIONS[s.id] = s
 
     d = s.driver
-    d.get(login.LOGIN_URL)
+    d.get(Login.LOGIN_URL)
     d.maximize_window()
     _wait_ready(d)
 
@@ -187,7 +190,7 @@ def start():
         except Exception:
             pass
 
-    cap = login.detect_captcha_case(d)
+    cap = Login.detect_captcha_case(d)
     b64 = None
     if cap == "text":
         try:
@@ -219,7 +222,7 @@ def _do_login_and_assets(
     (root / "academic_calendar").mkdir(exist_ok=True, parents=True)
 
     # ---- fill credentials ----
-    login.fill_credentials(d, username, password)
+    Login.fill_credentials(d, username, password)
     if captcha_text:
         try:
             cap_el = d.find_element(By.ID, "captchaStr")
@@ -234,17 +237,17 @@ def _do_login_and_assets(
     end = time.time() + 60
     while time.time() < end:
         time.sleep(0.5)
-        if login.login_success(d): break
-        if login.page_says_wrong_password(d):
+        if Login.login_success(d): break
+        if Login.page_says_wrong_password(d):
             return AssetsOut(ok=False, session_id=s.id, message="Invalid username or password")
-        if login.page_says_wrong_captcha(d):
+        if Login.page_says_wrong_captcha(d):
             return AssetsOut(ok=False, session_id=s.id, message="Invalid captcha")
-    if not login.login_success(d):
+    if not Login.login_success(d):
         return AssetsOut(ok=False, session_id=s.id, message="Login not confirmed")
 
     # save session cookies (then copy into this session folder)
     try:
-        login.save_cookies(d, username)
+        Login.save_cookies(d, username)
         # move/copy artifacts into session folder
         src = Path("data") / "cookies.json"
         if src.exists():
@@ -256,22 +259,22 @@ def _do_login_and_assets(
         pass
 
     # -------- TIMETABLE ----------
-    login.navigate_to_timetable(d)
+    Login.navigate_to_timetable(d)
     if timetable_sem:
         _select_dropdown_by_text(d, "select#semesterSubId", timetable_sem)
         time.sleep(0.6)
     timetable_png_path = root / "timetable.png"
-    login._screenshot_timetable(d, out_png=str(timetable_png_path))
+    Login._screenshot_timetable(d, out_png=str(timetable_png_path))
 
     # Registered courses (to populate Course Code field in UI)
     reg_json_path = root / "registered_courses.json"
     try:
-        login.parse_registered_courses_dom(d, out_path=str(reg_json_path))
+        Login.parse_registered_courses_dom(d, out_path=str(reg_json_path))
     except Exception:
         pass
 
     # -------- ATTENDANCE ----------
-    login.navigate_to_attendance(d)
+    Login.navigate_to_attendance(d)
     if attendance_sem:
         _select_dropdown_by_text(d, "select#semesterSubId", attendance_sem)
         # trigger search if a button exists
@@ -287,20 +290,20 @@ def _do_login_and_assets(
                 continue
 
     att_counts_path = root / "attendance_counts.json"
-    payload = login.scrape_attendance(
+    payload = Login.scrape_attendance(
         d, only_counts=True, write_json=True,
         counts_out_path=str(att_counts_path)
     )
 
     # -------- ACADEMIC CALENDAR ----------
-    login.navigate_to_academic_calendar(d)
+    Login.navigate_to_academic_calendar(d)
     if calendar_sem:
         _select_dropdown_by_text(d, "select#semesterSubId", calendar_sem)
     if class_group:
         _select_dropdown_by_text(d, "select#classGroupId", class_group)
 
     cal_dir = root / "academic_calendar"
-    login.screenshot_academic_calendar_months(d, out_dir=str(cal_dir))
+    Login.screenshot_academic_calendar_months(d, out_dir=str(cal_dir))
 
     # collect calendar images
     cal_pngs = sorted([p for p in cal_dir.glob("*.png")])
